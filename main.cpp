@@ -18,7 +18,7 @@ string transformWordForProcessing(string word) {
     string newWord;
     for (char c : word) {
         // Check if the character is a letter
-        if (isalpha(c)) { 
+        if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z') { 
             newWord += tolower(c);
         }
     }
@@ -28,15 +28,11 @@ string transformWordForProcessing(string word) {
 // Mapper function
 void *mapperFunc(void *arg) {
     
-    cout << "Ajunge in functia de mapper!" << endl;
-
     struct MapperThreadInfo *mapperThreadInfo = (struct MapperThreadInfo *)arg;    
     pair<string, int> currentFile;
     
     // Reading files from the queue and processing them until the queue is empty
     while (true) {
-
-        cout << "In while intra???" << endl;
 
         // Lock the mutex for reading from the queue
         pthread_mutex_lock(&mapperThreadInfo->mutexQueue);
@@ -47,7 +43,6 @@ void *mapperFunc(void *arg) {
             pthread_mutex_unlock(&mapperThreadInfo->mutexQueue);
             break;
         } else {
-            cout << "mai gaseste fisier de unde sa citeasca!" << endl;
             // Queue isn't empty yet => read the next file 
             currentFile = mapperThreadInfo->queueFileNames->front();
             mapperThreadInfo->queueFileNames->pop();
@@ -66,8 +61,6 @@ void *mapperFunc(void *arg) {
         // Reading word by word from the file and adding the words alongside 
         // the indexes to the output list
         string word;
-        cout << "file: "  << currentFile.first << " " << currentFile.second << endl;
-
         while (file >> word) {
             // get the word to lowercase and remove the punctuation
             string newWord = transformWordForProcessing(word);
@@ -77,7 +70,7 @@ void *mapperFunc(void *arg) {
             // Adding the word and the index only if the word is not on the list already
             bool alreadyOnTheList = false;
             for (int i = 0; i < mapperThreadInfo->outputList->size(); i++) {
-                if (mapperThreadInfo->outputList->at(i).first == newWord) {
+                if (mapperThreadInfo->outputList->at(i).first == newWord && mapperThreadInfo->outputList->at(i).second == currentFile.second) {
                     alreadyOnTheList = true;
                     break;
                 } else {
@@ -154,6 +147,7 @@ int main(int argc, char **argv)
         cout << "Error when initialising the mutex for the queue!" << endl;
         exit(-1);
     }
+    mapperThreadInfo.mutexQueue = mutexQueue;
 
     pthread_mutex_t mutexWritingOutput;
     pthread_mutex_init(&mutexWritingOutput, NULL);
@@ -161,6 +155,7 @@ int main(int argc, char **argv)
         cout << "Error when initialising the mutex for writing to the output list!" << endl;
         exit(-1);
     }
+    mapperThreadInfo.mutexWritingOutput = mutexWritingOutput;
 
     // Mapper threads logic
     for (int i = 0; i < numberOfMapperThreads; i++) {
