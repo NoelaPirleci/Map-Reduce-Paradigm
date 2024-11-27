@@ -13,6 +13,16 @@ struct MapperThreadInfo {
     pthread_mutex_t mutexWritingOutput;
 };
 
+
+// Structure for the reducer threads
+struct ReducerThreadInfo {
+    vector<pair<string, int>> *inputListFromMappers;
+    vector<pair<string, int>> *finalList;
+    pthread_mutex_t mutexReadingInput;
+    pthread_mutex_t mutexWritingFinalList;
+};
+
+
 string transformWordForProcessing(string word) {
     // Transform the word to lowercase
     string newWord;
@@ -20,6 +30,9 @@ string transformWordForProcessing(string word) {
         // Check if the character is a letter
         if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z') { 
             newWord += tolower(c);
+        } else {
+            // if the character is not a letter, we will remove it
+            newWord += "";
         }
     }
     return newWord;
@@ -89,7 +102,6 @@ void *mapperFunc(void *arg) {
         }
 
     }
-
     pthread_exit(NULL);
 }
 
@@ -156,6 +168,28 @@ int main(int argc, char **argv)
         exit(-1);
     }
     mapperThreadInfo.mutexWritingOutput = mutexWritingOutput;
+
+
+    // Initialising the data for the reducer threads
+    struct ReducerThreadInfo reducerThreadInfo;
+    reducerThreadInfo.inputListFromMappers = mapperThreadInfo.outputList;
+    reducerThreadInfo.finalList = new vector<pair<string, int>>;
+    pthread_mutex_t mutexReadingInput;
+    pthread_mutex_init(&mutexReadingInput, NULL);
+    if (pthread_mutex_init(&mutexReadingInput, NULL) != 0) {
+        cout << "Error when initialising the mutex for reading the input list!" << endl;
+        exit(-1);
+    }
+    reducerThreadInfo.mutexReadingInput = mutexReadingInput;
+
+    pthread_mutex_t mutexWritingOutputReducer;
+    pthread_mutex_init(&mutexWritingOutputReducer, NULL);
+    if (pthread_mutex_init(&mutexWritingOutputReducer, NULL) != 0) {
+        cout << "Error when initialising the mutex for writing to the final list!" << endl;
+        exit(-1);
+    }
+    reducerThreadInfo.mutexWritingFinalList = mutexWritingOutputReducer;
+
 
     // Mapper threads logic
     for (int i = 0; i < numberOfMapperThreads; i++) {
